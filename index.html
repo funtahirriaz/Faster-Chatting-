@@ -1,0 +1,128 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Simple Firebase Chat</title>
+  <style>
+    :root { --me-bg:#dcf8c6; --other-bg:#fff; --accent:#0b93f6; }
+    body{font-family:Inter,Arial,Helvetica,sans-serif;margin:0;background:#f2f2f2;}
+    .app{max-width:600px;margin:0 auto;height:100vh;display:flex;flex-direction:column;}
+    header{padding:12px;background:#fff;border-bottom:1px solid #e6e6e6;display:flex;align-items:center;justify-content:space-between;}
+    header h1{font-size:16px;margin:0;}
+    #messages{flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:8px;}
+    .msg{max-width:80%;padding:8px 10px;border-radius:12px;box-shadow:0 1px 0 rgba(0,0,0,0.05);font-size:14px;word-break:break-word;}
+    .me{align-self:flex-end;background:var(--me-bg);}
+    .other{align-self:flex-start;background:var(--other-bg);}
+    .meta{font-size:11px;color:#666;margin-bottom:6px;}
+    .composer{display:flex;padding:10px;background:#fff;border-top:1px solid #e6e6e6;}
+    .composer input{flex:1;padding:10px;border-radius:20px;border:1px solid #ddd;outline:none;}
+    .composer button{margin-left:8px;padding:10px 14px;border-radius:20px;border:none;background:var(--accent);color:#fff;cursor:pointer;}
+    .small-note{font-size:12px;color:#666;padding:8px;text-align:center;}
+    @media (max-width:420px){ .app{height:100vh;} }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Realtime Chat</h1>
+      <div id="meName"></div>
+    </header>
+
+    <div id="messages" aria-live="polite"></div>
+
+    <div class="composer">
+      <input id="messageInput" placeholder="Type a message..." autocomplete="off" />
+      <button id="sendBtn">Send</button>
+    </div>
+
+    <div class="small-note">Open browser console if messages don't load (F12 / Inspect → Console).</div>
+  </div>
+
+  <script type="module">
+    // Firebase modular imports (CDN)
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+    import { getDatabase, ref, push, query, orderByChild, onChildAdded } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
+
+    // ---------- Paste your Firebase config here (you provided this) ----------
+    const firebaseConfig = {
+      apiKey: "AIzaSyDNRsw21wFZ-6Wtf7sgcdFnwidc4gAnN7k",
+      authDomain: "message-app-c293d.firebaseapp.com",
+      databaseURL: "https://message-app-c293d-default-rtdb.firebaseio.com",
+      projectId: "message-app-c293d",
+      storageBucket: "message-app-c293d.firebasestorage.app",
+      messagingSenderId: "790011787957",
+      appId: "1:790011787957:web:6a09c8e738c4e5ff069cfc"
+    };
+    // -----------------------------------------------------------------------
+
+    // init
+    let app;
+    try {
+      app = initializeApp(firebaseConfig);
+    } catch (err) {
+      console.error("Firebase init error:", err);
+      alert("Firebase initialization failed. Check console.");
+      throw err;
+    }
+
+    const db = getDatabase(app);
+    const messagesRef = ref(db, 'messages');
+
+    // username
+    let name = localStorage.getItem('chat_name');
+    if (!name) {
+      name = prompt('Apna naam daalo (example: Ali)') || ('Guest' + Math.floor(Math.random()*1000));
+      localStorage.setItem('chat_name', name);
+    }
+    document.getElementById('meName').textContent = name;
+
+    // DOM elements
+    const messagesDiv = document.getElementById('messages');
+    const input = document.getElementById('messageInput');
+    const sendBtn = document.getElementById('sendBtn');
+
+    sendBtn.addEventListener('click', sendMessage);
+    input.addEventListener('keyup', (e) => { if (e.key === 'Enter') sendMessage(); });
+
+    function sendMessage() {
+      const text = input.value.trim();
+      if (!text) return;
+      // push to RTDB
+      push(messagesRef, { name, text, ts: Date.now() })
+        .catch(err => console.error("Push error:", err));
+      input.value = '';
+    }
+
+    // Listen for new messages ordered by timestamp
+    const q = query(messagesRef, orderByChild('ts'));
+    onChildAdded(q, (snap) => {
+      const msg = snap.val();
+      if (!msg) return;
+      addMessageToDOM(msg);
+    }, (err) => {
+      console.error("onChildAdded error:", err);
+    });
+
+    function addMessageToDOM(msg) {
+      const el = document.createElement('div');
+      el.className = 'msg ' + (msg.name === name ? 'me' : 'other');
+
+      // safe-escape
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      meta.textContent = msg.name || 'Anon';
+
+      const text = document.createElement('div');
+      text.innerText = msg.text || '';
+
+      el.appendChild(meta);
+      el.appendChild(text);
+
+      messagesDiv.appendChild(el);
+      // scroll
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+  </script>
+</body>
+</html>
