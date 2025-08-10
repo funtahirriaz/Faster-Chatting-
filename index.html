@@ -3,23 +3,119 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Simple Firebase Chat</title>
+  <title>Simple Firebase Chat with Media Preview</title>
   <style>
-    :root { --me-bg:#dcf8c6; --other-bg:#fff; --accent:#0b93f6; }
-    body{font-family:Inter,Arial,Helvetica,sans-serif;margin:0;background:#f2f2f2;}
-    .app{max-width:600px;margin:0 auto;height:100vh;display:flex;flex-direction:column;}
-    header{padding:12px;background:#fff;border-bottom:1px solid #e6e6e6;display:flex;align-items:center;justify-content:space-between;}
-    header h1{font-size:16px;margin:0;}
-    #messages{flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:8px;}
-    .msg{max-width:80%;padding:8px 10px;border-radius:12px;box-shadow:0 1px 0 rgba(0,0,0,0.05);font-size:14px;word-break:break-word;}
-    .me{align-self:flex-end;background:var(--me-bg);}
-    .other{align-self:flex-start;background:var(--other-bg);}
-    .meta{font-size:11px;color:#666;margin-bottom:6px;}
-    .composer{display:flex;padding:10px;background:#fff;border-top:1px solid #e6e6e6;}
-    .composer input{flex:1;padding:10px;border-radius:20px;border:1px solid #ddd;outline:none;}
-    .composer button{margin-left:8px;padding:10px 14px;border-radius:20px;border:none;background:var(--accent);color:#fff;cursor:pointer;}
-    .small-note{font-size:12px;color:#666;padding:8px;text-align:center;}
-    @media (max-width:420px){ .app{height:100vh;} }
+    body {
+      font-family: Arial, sans-serif;
+      background: #ece5dd;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+    }
+    .app {
+      background: #fff;
+      width: 100%;
+      max-width: 500px;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      border: 1px solid #ccc;
+    }
+    header {
+      background: #075e54;
+      color: white;
+      padding: 10px;
+      text-align: center;
+    }
+    #meName {
+      font-size: 0.9em;
+      opacity: 0.8;
+    }
+    #messages {
+      flex: 1;
+      padding: 10px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      background: #ece5dd;
+    }
+    .msg {
+      padding: 8px 12px;
+      border-radius: 8px;
+      max-width: 75%;
+      position: relative;
+      word-wrap: break-word;
+    }
+    .me {
+      align-self: flex-end;
+      background: #dcf8c6;
+    }
+    .other {
+      align-self: flex-start;
+      background: white;
+    }
+    .meta {
+      font-size: 0.8em;
+      color: #555;
+      margin-bottom: 4px;
+    }
+    .chat-img, .chat-video {
+      max-width: 220px;
+      border-radius: 6px;
+      margin-top: 5px;
+    }
+    .chat-video {
+      background: black;
+    }
+    .composer {
+      display: flex;
+      padding: 10px;
+      background: #f0f0f0;
+      gap: 5px;
+      align-items: center;
+    }
+    .composer input[type="text"] {
+      flex: 1;
+      padding: 8px;
+      border-radius: 20px;
+      border: 1px solid #ccc;
+    }
+    .composer input[type="file"] {
+      font-size: 0.8em;
+    }
+    #sendBtn {
+      background: #25d366;
+      border: none;
+      padding: 8px 12px;
+      color: white;
+      border-radius: 20px;
+      cursor: pointer;
+    }
+    #sendBtn:hover {
+      background: #20b858;
+    }
+    #previewContainer {
+      padding: 10px;
+      max-width: 220px;
+      margin-left: 10px;
+    }
+    #previewContainer img,
+    #previewContainer video {
+      max-width: 220px;
+      border-radius: 6px;
+      display: block;
+    }
+    #previewContainer button {
+      margin-top: 5px;
+      cursor: pointer;
+      background: #ff4d4d;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 2px 6px;
+    }
   </style>
 </head>
 <body>
@@ -29,22 +125,22 @@
       <div id="meName"></div>
     </header>
 
-    <div id="messages" aria-live="polite"></div>
+    <div id="messages"></div>
 
     <div class="composer">
       <input id="messageInput" placeholder="Type a message..." autocomplete="off" />
+      <input type="file" id="fileInput" accept="image/*,video/*" />
       <button id="sendBtn">Send</button>
+      <div id="previewContainer"></div>
     </div>
-
-    <div class="small-note">Open browser console if messages don't load (F12 / Inspect → Console).</div>
   </div>
 
   <script type="module">
-    // Firebase modular imports (CDN)
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
     import { getDatabase, ref, push, query, orderByChild, onChildAdded } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
+    import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-storage.js";
 
-    // ---------- Paste your Firebase config here (you provided this) ----------
+    // === Your Firebase config ===
     const firebaseConfig = {
       apiKey: "AIzaSyDNRsw21wFZ-6Wtf7sgcdFnwidc4gAnN7k",
       authDomain: "message-app-c293d.firebaseapp.com",
@@ -54,22 +150,12 @@
       messagingSenderId: "790011787957",
       appId: "1:790011787957:web:6a09c8e738c4e5ff069cfc"
     };
-    // -----------------------------------------------------------------------
 
-    // init
-    let app;
-    try {
-      app = initializeApp(firebaseConfig);
-    } catch (err) {
-      console.error("Firebase init error:", err);
-      alert("Firebase initialization failed. Check console.");
-      throw err;
-    }
-
+    const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
+    const storage = getStorage(app);
     const messagesRef = ref(db, 'messages');
 
-    // username
     let name = localStorage.getItem('chat_name');
     if (!name) {
       name = prompt('Apna naam daalo (example: Ali)') || ('Guest' + Math.floor(Math.random()*1000));
@@ -77,51 +163,108 @@
     }
     document.getElementById('meName').textContent = name;
 
-    // DOM elements
     const messagesDiv = document.getElementById('messages');
     const input = document.getElementById('messageInput');
+    const fileInput = document.getElementById('fileInput');
     const sendBtn = document.getElementById('sendBtn');
+    const previewContainer = document.getElementById('previewContainer');
 
     sendBtn.addEventListener('click', sendMessage);
     input.addEventListener('keyup', (e) => { if (e.key === 'Enter') sendMessage(); });
 
-    function sendMessage() {
+    // Show preview when file selected
+    fileInput.addEventListener('change', () => {
+      previewContainer.innerHTML = ''; // Clear old preview
+
+      const file = fileInput.files[0];
+      if (!file) return;
+
+      const url = URL.createObjectURL(file);
+
+      let previewEl;
+      if (file.type.startsWith('image/')) {
+        previewEl = document.createElement('img');
+        previewEl.src = url;
+        previewEl.className = 'chat-img';
+      } else if (file.type.startsWith('video/')) {
+        previewEl = document.createElement('video');
+        previewEl.src = url;
+        previewEl.controls = true;
+        previewEl.className = 'chat-video';
+      }
+
+      if (previewEl) {
+        previewContainer.appendChild(previewEl);
+
+        const clearBtn = document.createElement('button');
+        clearBtn.textContent = '✕ Remove';
+        clearBtn.addEventListener('click', () => {
+          fileInput.value = '';
+          previewContainer.innerHTML = '';
+        });
+        previewContainer.appendChild(clearBtn);
+      }
+    });
+
+    async function sendMessage() {
       const text = input.value.trim();
-      if (!text) return;
-      // push to RTDB
-      push(messagesRef, { name, text, ts: Date.now() })
-        .catch(err => console.error("Push error:", err));
+      const file = fileInput.files[0];
+
+      if (!text && !file) return;
+
+      if (file) {
+        const filePath = `uploads/${Date.now()}_${file.name}`;
+        const fileRef = sRef(storage, filePath);
+        await uploadBytes(fileRef, file);
+        const url = await getDownloadURL(fileRef);
+        push(messagesRef, {
+          name,
+          text: text || '',
+          fileUrl: url,
+          fileType: file.type,
+          ts: Date.now()
+        });
+        fileInput.value = '';
+        previewContainer.innerHTML = '';  // Clear preview
+      } else {
+        push(messagesRef, { name, text, ts: Date.now() });
+      }
+
       input.value = '';
     }
 
-    // Listen for new messages ordered by timestamp
     const q = query(messagesRef, orderByChild('ts'));
     onChildAdded(q, (snap) => {
       const msg = snap.val();
-      if (!msg) return;
       addMessageToDOM(msg);
-    }, (err) => {
-      console.error("onChildAdded error:", err);
     });
 
     function addMessageToDOM(msg) {
       const el = document.createElement('div');
       el.className = 'msg ' + (msg.name === name ? 'me' : 'other');
+      let meta = '<div class="meta">' + escapeHTML(msg.name) + '</div>';
+      let content = '';
 
-      // safe-escape
-      const meta = document.createElement('div');
-      meta.className = 'meta';
-      meta.textContent = msg.name || 'Anon';
+      if (msg.text) {
+        content += '<div>' + escapeHTML(msg.text) + '</div>';
+      }
+      if (msg.fileUrl) {
+        if (msg.fileType && msg.fileType.startsWith('image/')) {
+          content += `<div><img class="chat-img" src="${msg.fileUrl}" /></div>`;
+        } else if (msg.fileType && msg.fileType.startsWith('video/')) {
+          content += `<div><video class="chat-video" src="${msg.fileUrl}" controls></video></div>`;
+        }
+      }
 
-      const text = document.createElement('div');
-      text.innerText = msg.text || '';
-
-      el.appendChild(meta);
-      el.appendChild(text);
-
+      el.innerHTML = meta + content;
       messagesDiv.appendChild(el);
-      // scroll
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    function escapeHTML(s){ 
+      return String(s).replaceAll('&','&amp;')
+                      .replaceAll('<','&lt;')
+                      .replaceAll('>','&gt;'); 
     }
   </script>
 </body>
