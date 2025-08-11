@@ -3,119 +3,21 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Simple Firebase Chat with Media Preview</title>
+  <title>Firebase Realtime Chat</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #ece5dd;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      justify-content: center;
-    }
-    .app {
-      background: #fff;
-      width: 100%;
-      max-width: 500px;
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-      border: 1px solid #ccc;
-    }
-    header {
-      background: #075e54;
-      color: white;
-      padding: 10px;
-      text-align: center;
-    }
-    #meName {
-      font-size: 0.9em;
-      opacity: 0.8;
-    }
-    #messages {
-      flex: 1;
-      padding: 10px;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      background: #ece5dd;
-    }
-    .msg {
-      padding: 8px 12px;
-      border-radius: 8px;
-      max-width: 75%;
-      position: relative;
-      word-wrap: break-word;
-    }
-    .me {
-      align-self: flex-end;
-      background: #dcf8c6;
-    }
-    .other {
-      align-self: flex-start;
-      background: white;
-    }
-    .meta {
-      font-size: 0.8em;
-      color: #555;
-      margin-bottom: 4px;
-    }
-    .chat-img, .chat-video {
-      max-width: 220px;
-      border-radius: 6px;
-      margin-top: 5px;
-    }
-    .chat-video {
-      background: black;
-    }
-    .composer {
-      display: flex;
-      padding: 10px;
-      background: #f0f0f0;
-      gap: 5px;
-      align-items: center;
-    }
-    .composer input[type="text"] {
-      flex: 1;
-      padding: 8px;
-      border-radius: 20px;
-      border: 1px solid #ccc;
-    }
-    .composer input[type="file"] {
-      font-size: 0.8em;
-    }
-    #sendBtn {
-      background: #25d366;
-      border: none;
-      padding: 8px 12px;
-      color: white;
-      border-radius: 20px;
-      cursor: pointer;
-    }
-    #sendBtn:hover {
-      background: #20b858;
-    }
-    #previewContainer {
-      padding: 10px;
-      max-width: 220px;
-      margin-left: 10px;
-    }
-    #previewContainer img,
-    #previewContainer video {
-      max-width: 220px;
-      border-radius: 6px;
-      display: block;
-    }
-    #previewContainer button {
-      margin-top: 5px;
-      cursor: pointer;
-      background: #ff4d4d;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      padding: 2px 6px;
-    }
+    body { font-family: sans-serif; background: #f0f0f0; margin: 0; }
+    .app { max-width: 600px; margin: auto; display: flex; flex-direction: column; height: 100vh; background: white; }
+    header { padding: 10px; background: #2196F3; color: white; display: flex; justify-content: space-between; }
+    #messages { flex: 1; overflow-y: auto; padding: 10px; }
+    .msg { margin: 5px 0; padding: 5px 10px; border-radius: 8px; max-width: 80%; }
+    .me { background: #DCF8C6; margin-left: auto; }
+    .other { background: #f1f1f1; margin-right: auto; }
+    .meta { font-size: 0.8em; color: #555; }
+    .composer { display: flex; padding: 10px; gap: 5px; background: #eee; }
+    input[type="text"] { flex: 1; padding: 8px; border-radius: 4px; border: 1px solid #ccc; }
+    button, label { background: #2196F3; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; }
+    input[type="file"] { display: none; }
+    img, video { max-width: 200px; margin-top: 5px; border-radius: 5px; }
   </style>
 </head>
 <body>
@@ -128,10 +30,10 @@
     <div id="messages"></div>
 
     <div class="composer">
-      <input id="messageInput" placeholder="Type a message..." autocomplete="off" />
-      <input type="file" id="fileInput" accept="image/*,video/*" />
+      <input id="messageInput" type="text" placeholder="Type a message..." autocomplete="off" />
+      <label for="fileInput">📎</label>
+      <input id="fileInput" type="file" accept="image/*,video/*" />
       <button id="sendBtn">Send</button>
-      <div id="previewContainer"></div>
     </div>
   </div>
 
@@ -140,13 +42,13 @@
     import { getDatabase, ref, push, query, orderByChild, onChildAdded } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
     import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-storage.js";
 
-    // === Your Firebase config ===
+    // Firebase config (bucket fixed to .appspot.com)
     const firebaseConfig = {
       apiKey: "AIzaSyDNRsw21wFZ-6Wtf7sgcdFnwidc4gAnN7k",
       authDomain: "message-app-c293d.firebaseapp.com",
       databaseURL: "https://message-app-c293d-default-rtdb.firebaseio.com",
       projectId: "message-app-c293d",
-      storageBucket: "message-app-c293d.firebasestorage.app",
+      storageBucket: "message-app-c293d.appspot.com",
       messagingSenderId: "790011787957",
       appId: "1:790011787957:web:6a09c8e738c4e5ff069cfc"
     };
@@ -165,71 +67,35 @@
 
     const messagesDiv = document.getElementById('messages');
     const input = document.getElementById('messageInput');
-    const fileInput = document.getElementById('fileInput');
     const sendBtn = document.getElementById('sendBtn');
-    const previewContainer = document.getElementById('previewContainer');
+    const fileInput = document.getElementById('fileInput');
 
     sendBtn.addEventListener('click', sendMessage);
     input.addEventListener('keyup', (e) => { if (e.key === 'Enter') sendMessage(); });
 
-    // Show preview when file selected
-    fileInput.addEventListener('change', () => {
-      previewContainer.innerHTML = ''; // Clear old preview
-
+    // Auto send image/video on select
+    fileInput.addEventListener('change', async () => {
       const file = fileInput.files[0];
       if (!file) return;
 
-      const url = URL.createObjectURL(file);
+      const filePath = `uploads/${Date.now()}_${file.name}`;
+      const fileRef = sRef(storage, filePath);
+      await uploadBytes(fileRef, file);
+      const fileUrl = await getDownloadURL(fileRef);
 
-      let previewEl;
-      if (file.type.startsWith('image/')) {
-        previewEl = document.createElement('img');
-        previewEl.src = url;
-        previewEl.className = 'chat-img';
-      } else if (file.type.startsWith('video/')) {
-        previewEl = document.createElement('video');
-        previewEl.src = url;
-        previewEl.controls = true;
-        previewEl.className = 'chat-video';
-      }
+      let fileType = null;
+      if (file.type.startsWith('image/')) fileType = 'image';
+      else if (file.type.startsWith('video/')) fileType = 'video';
 
-      if (previewEl) {
-        previewContainer.appendChild(previewEl);
+      push(messagesRef, { name, text: "", fileUrl, fileType, ts: Date.now() });
 
-        const clearBtn = document.createElement('button');
-        clearBtn.textContent = '✕ Remove';
-        clearBtn.addEventListener('click', () => {
-          fileInput.value = '';
-          previewContainer.innerHTML = '';
-        });
-        previewContainer.appendChild(clearBtn);
-      }
+      fileInput.value = '';
     });
 
-    async function sendMessage() {
+    function sendMessage() {
       const text = input.value.trim();
-      const file = fileInput.files[0];
-
-      if (!text && !file) return;
-
-      if (file) {
-        const filePath = `uploads/${Date.now()}_${file.name}`;
-        const fileRef = sRef(storage, filePath);
-        await uploadBytes(fileRef, file);
-        const url = await getDownloadURL(fileRef);
-        push(messagesRef, {
-          name,
-          text: text || '',
-          fileUrl: url,
-          fileType: file.type,
-          ts: Date.now()
-        });
-        fileInput.value = '';
-        previewContainer.innerHTML = '';  // Clear preview
-      } else {
-        push(messagesRef, { name, text, ts: Date.now() });
-      }
-
+      if (!text) return;
+      push(messagesRef, { name, text, ts: Date.now() });
       input.value = '';
     }
 
@@ -242,20 +108,16 @@
     function addMessageToDOM(msg) {
       const el = document.createElement('div');
       el.className = 'msg ' + (msg.name === name ? 'me' : 'other');
-      let meta = '<div class="meta">' + escapeHTML(msg.name) + '</div>';
+      const meta = `<div class="meta">${escapeHTML(msg.name)}</div>`;
       let content = '';
-
-      if (msg.text) {
-        content += '<div>' + escapeHTML(msg.text) + '</div>';
-      }
+      if (msg.text) content += `<div>${escapeHTML(msg.text)}</div>`;
       if (msg.fileUrl) {
-        if (msg.fileType && msg.fileType.startsWith('image/')) {
-          content += `<div><img class="chat-img" src="${msg.fileUrl}" /></div>`;
-        } else if (msg.fileType && msg.fileType.startsWith('video/')) {
-          content += `<div><video class="chat-video" src="${msg.fileUrl}" controls></video></div>`;
+        if (msg.fileType === 'image') {
+          content += `<img src="${msg.fileUrl}" alt="Image" />`;
+        } else if (msg.fileType === 'video') {
+          content += `<video src="${msg.fileUrl}" controls></video>`;
         }
       }
-
       el.innerHTML = meta + content;
       messagesDiv.appendChild(el);
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
